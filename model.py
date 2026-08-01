@@ -70,8 +70,12 @@ def const(value, shape):
 
 LazyBuffer.const = staticmethod(const)
 
-# Step 6 - rand (not yet solved)
-# TODO: implement
+# Step 6 - rand
+def rand(shape, seed=None):
+    # return a LazyBuffer of uniform random floats in [0, 1) with given shape
+    rng = np.random.RandomState(seed)
+    data = rng.random(shape).astype(np.float32)
+    return LazyBuffer(data)
 
 # Step 7 - lazybuffer_unary_e (not yet solved)
 # TODO: implement

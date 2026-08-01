@@ -15,7 +15,7 @@ python scaffold.py
 - [x] **3.** make_op_enums
 - [x] **4.** LazyBuffer
 - [x] **5.** lazybuffer_const
-- [ ] **6.** rand
+- [x] **6.** rand
 - [ ] **7.** lazybuffer_unary_e
 - [ ] **8.** lazybuffer_binary_e
 - [ ] **9.** lazybuffer_r
