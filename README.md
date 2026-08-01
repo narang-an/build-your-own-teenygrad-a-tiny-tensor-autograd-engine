@@ -12,7 +12,7 @@ python scaffold.py
 
 - [x] **1.** prod
 - [x] **2.** argsort
-- [ ] **3.** make_op_enums
+- [x] **3.** make_op_enums
 - [ ] **4.** LazyBuffer
 - [ ] **5.** lazybuffer_const
 - [ ] **6.** rand
