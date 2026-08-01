@@ -14,8 +14,23 @@ def prod(shape):
         res *= num
     return res
 
-# Step 2 - argsort (not yet solved)
-# TODO: implement
+# Step 2 - argsort
+import numpy as np 
+
+def argsort(values):
+    # Return the indices that would sort values in ascending order.
+    if len(values) == 0:
+        return []
+
+    result = [0]
+
+    for val_idx in range(1, len(values)):
+        result_idx = 0
+        while result_idx < len(result) and values[val_idx] >= values[result[result_idx]]:
+            result_idx += 1
+        result.insert(result_idx, val_idx)
+
+    return result
 
 # Step 3 - make_op_enums (not yet solved)
 # TODO: implement
