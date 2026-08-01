@@ -57,10 +57,10 @@ class LazyBuffer:
         return float(self._np)
 
     def __repr__(self):
-        pass
+        return f"LazyBuffer({repr(self._np)})"
 
     def __str__(self):
-        pass
+        return str(self._np)
 
 # Step 5 - lazybuffer_const (not yet solved)
 # TODO: implement
