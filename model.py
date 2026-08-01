@@ -82,24 +82,23 @@ def rand(shape, seed=None):
 # Step 7 - lazybuffer_unary_e
 def e(self, op):
     # apply a unary elementwise op (NEG, RELU, LOG, EXP, SQRT, SIGMOID)
-    tag = op.name
     x = self._np
     out = None
 
-    if tag == UnaryOps.NEG:
+    if op == UnaryOps.NEG:
         out = -x
-    elif tag == UnaryOps.RELU:
+    elif op == UnaryOps.RELU:
         out = np.maximum(x, 0)
-    elif tag == UnaryOps.LOG:
+    elif op == UnaryOps.LOG:
         out = np.log(x)
-    elif tag == UnaryOps.EXP:
+    elif op == UnaryOps.EXP:
         out = np.exp(x)
-    elif tag == UnaryOps.SQRT:
+    elif op == UnaryOps.SQRT:
         out = np.sqrt(x)
-    elif tag == UnaryOps.EXP:
+    elif op == UnaryOps.SIGMOID:
         out = 1.0 / (1.0 + np.exp(-x))
     else:
-        raise ValueError(f"Unknown unary op: {tag}")
+        raise ValueError(f"Unknown unary op: {op}")
 
     return LazyBuffer(out)
 
