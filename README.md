@@ -17,7 +17,7 @@ python scaffold.py
 - [x] **5.** lazybuffer_const
 - [x] **6.** rand
 - [x] **7.** lazybuffer_unary_e
-- [ ] **8.** lazybuffer_binary_e
+- [x] **8.** lazybuffer_binary_e
 - [ ] **9.** lazybuffer_r
 - [ ] **10.** lazybuffer_reshape
 - [ ] **11.** lazybuffer_expand
