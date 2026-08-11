@@ -44,6 +44,8 @@ def make_op_enums():
 
     return UnaryOps, BinaryOps, ReduceOps, MovementOps
 
+UnaryOps, BinaryOps, ReduceOps, MovementOps = make_op_enums()
+
 # Step 4 - LazyBuffer
 class LazyBuffer:
     def __init__(self, np_array):
@@ -219,8 +221,6 @@ class Neg(Function):
         return LazyBuffer(-grad_output._np)
 
 # Step 17 - Relu
-UnaryOps, BinaryOps, ReduceOps, MovementOps = make_op_enums()
-
 class Relu(Function):
     def forward(self, x):
         # apply the rectified linear unit to lazy buffer x and cache the result
