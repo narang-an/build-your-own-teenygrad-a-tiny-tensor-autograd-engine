@@ -219,8 +219,6 @@ class Neg(Function):
         return LazyBuffer(-grad_output._np)
 
 # Step 17 - Relu
-import enum
-
 UnaryOps, BinaryOps, ReduceOps, MovementOps = make_op_enums()
 
 class Relu(Function):
