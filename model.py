@@ -210,8 +210,13 @@ for _obj in list(globals().values()):
             if _k.__name__ == 'Function':
                 _k.apply = apply
 
-# Step 16 - Neg (not yet solved)
-# TODO: implement
+# Step 16 - Neg
+class Neg(Function):
+    def forward(self, x):
+        return LazyBuffer(-x._np)
+
+    def backward(self, grad_output):
+        return LazyBuffer(-grad_output._np)
 
 # Step 17 - Relu (not yet solved)
 # TODO: implement
