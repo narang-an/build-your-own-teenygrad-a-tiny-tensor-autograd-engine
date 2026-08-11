@@ -238,11 +238,11 @@ class Log(Function):
     def forward(self, x):
         # return the natural log of x and save x for backward
         self.x = x
-        return LazyBuffer(x.e(UnaryOps.LOG))
+        return x.e(UnaryOps.LOG)
 
     def backward(self, grad_output):
         # return the gradient of log with respect to its input
-        return LazyBuffer(grad_output.e(BinaryOps.DIV, self.x))
+        return lazybuffer_binary_e(grad_output, BinaryOps.DIV, self.x)
 
 # Step 19 - Exp (not yet solved)
 # TODO: implement
