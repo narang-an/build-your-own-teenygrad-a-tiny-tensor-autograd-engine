@@ -248,9 +248,8 @@ class Log(Function):
 class Exp(Function):
     def forward(self, x):
         # compute the elementwise exponential and keep what backward needs
-        result = x.e(UnaryOps.EXP)
-        self.ret = result
-        return result
+        self.ret = x.e(UnaryOps.EXP)
+        return self.ret
 
     def backward(self, grad_output):
         # turn the upstream gradient into the gradient w.r.t. the input
