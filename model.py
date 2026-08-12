@@ -263,11 +263,19 @@ class Sqrt(Function):
         return self.ret
 
     def backward(self, grad_output):
-        two = LazyBuffer(np.full(self.ret.shape, 2, dtype=self.ret.dtype))
+        two = ones = LazyBuffer.const(2, self.ret._np.shape)
         return  lazybuffer_binary_e(grad_output, BinaryOps.DIV, lazybuffer_binary_e(two, BinaryOps.MUL, self.ret))
 
-# Step 21 - Sigmoid (not yet solved)
-# TODO: implement
+# Step 21 - Sigmoid
+class Sigmoid(Function):
+    def forward(self, x):
+        self.ret = x.e(UnaryOps.SIGMOID)
+        return self.ret
+
+    def backward(self, grad_output):
+        # return grad_output times the sigmoid derivative
+        ones = LazyBuffer.const(1, self.ret._np.shape)
+        return lazybuffer_binary_e(grad_output, BinaryOps.MUL, lazybuffer_binary_e(ones, BinaryOps.SUB, grad_output))
 
 # Step 22 - Add (not yet solved)
 # TODO: implement
