@@ -275,7 +275,7 @@ class Sigmoid(Function):
     def backward(self, grad_output):
         # return grad_output times the sigmoid derivative
         ones = LazyBuffer.const(1, self.ret._np.shape)
-        return lazybuffer_binary_e(grad_output, BinaryOps.MUL, lazybuffer_binary_e(ones, BinaryOps.SUB, grad_output))
+        return lazybuffer_binary_e(grad_output, BinaryOps.MUL, lazybuffer_binary_e(self.ret, BinaryOps.MUL, lazybuffer_binary_e(ones, BinaryOps.SUB, self.ret)))
 
 # Step 22 - Add (not yet solved)
 # TODO: implement
