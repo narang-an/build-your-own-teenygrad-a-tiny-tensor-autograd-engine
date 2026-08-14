@@ -363,13 +363,14 @@ class Max(Function):
 # Step 29 - max_function_backward
 def backward(self, grad_output):
     # route grad_output back to the input elements that were the maximum
-    expanded = expand(self.ret, self.x._np_shape)
+    x_shape = self.x._np.shape
+    expanded = expand(self.ret, x_shape)
     ones = LazyBuffer(np.ones(x_shape))
-    max_is_1s = lazybuffer_binary_e(ones, BinaryOps.NEG, lazybuffer_binary_e(self.x, BinaryOps.CMPLT, ret))
-    counts = max_is_1s.r(ReduceOps.SUM, self.axis)          
-    counts_expanded = counts.expand(x_shape)                
+    max_is_1s = lazybuffer_binary_e(ones, BinaryOps.SUB, lazybuffer_binary_e(self.x, BinaryOps.CMPLT, self.ret))
+    counts = r(max_is_1s, ReduceOps.SUM, self.axis)          
+    counts_expanded = expand(counts, x_shape)                
     split_mask = lazybuffer_binary_e(max_is_1s, BinaryOps.DIV, counts_expanded)
-    grad_x = lazybuffer_binary_e(split_mask, BinaryOps.MUL, grad_output.expand(x_shape))
+    grad_x = lazybuffer_binary_e(split_mask, BinaryOps.MUL, expand(grad_output, x_shape))
     return grad_x
     
 
