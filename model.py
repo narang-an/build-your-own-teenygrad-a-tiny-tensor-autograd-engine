@@ -355,12 +355,26 @@ def backward(self, grad_output):
 class Max(Function):
     def forward(self, x, axis):
         # reduce x with the MAX reduce op along axis and cache for backward
+        self.x = x
         self.axis = axis
         self.ret = r(x, ReduceOps.MAX, axis)
         return self.ret
 
-# Step 29 - max_function_backward (not yet solved)
-# TODO: implement
+# Step 29 - max_function_backward
+def backward(self, grad_output):
+    # route grad_output back to the input elements that were the maximum
+    expanded = expand(self.ret, self.x._np_shape)
+    ones = LazyBuffer(np.ones(x_shape))
+    max_is_1s = lazybuffer_binary_e(ones, BinaryOps.NEG, lazybuffer_binary_e(self.x, BinaryOps.CMPLT, ret))
+    counts = max_is_1s.r(ReduceOps.SUM, self.axis)          
+    counts_expanded = counts.expand(x_shape)                
+    split_mask = lazybuffer_binary_e(max_is_1s, BinaryOps.DIV, counts_expanded)
+    grad_x = lazybuffer_binary_e(split_mask, BinaryOps.MUL, grad_output.expand(x_shape))
+    return grad_x
+    
+
+
+Max.backward = backward
 
 # Step 30 - Reshape (not yet solved)
 # TODO: implement
