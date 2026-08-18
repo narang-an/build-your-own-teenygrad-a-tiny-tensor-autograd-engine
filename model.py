@@ -756,8 +756,16 @@ def tensor_matmul_2d(a, b):
     out._ctx = None
     return out
 
-# Step 48 - tensor_softmax (not yet solved)
-# TODO: implement
+# Step 48 - tensor_softmax
+def tensor_softmax(x, axis=-1):
+    # turn logits into a probability distribution along the given axis
+    arr = np.array(x.numpy(), dtype=np.float64)
+
+    m = arr.max(axis=axis, keepdims=True)
+    e = np.exp(arr - m)
+    out = e / e.sum(axis=axis, keepdims=True)
+
+    return tensor_from_data(out.tolist())
 
 # Step 49 - tensor_log_softmax (not yet solved)
 # TODO: implement
