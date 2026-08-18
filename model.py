@@ -710,8 +710,25 @@ def tensor_mean(x, axis=None, keepdim=False):
     out = arr.mean(axis=axis, keepdims=keepdim)
     return tensor_from_data(out)
 
-# Step 46 - tensor_transpose (not yet solved)
-# TODO: implement
+# Step 46 - tensor_transpose
+def tensor_transpose(x, ax1=-2, ax2=-1):
+    # TODO: swap axes ax1 and ax2 of tensor x using a permutation
+    buf = None
+    for attr in ('lazydata', 'data', '_lazydata', 'buffer', '_data'):
+        if hasattr(x, attr):
+            buf = getattr(x, attr)
+            break
+
+    arr = buf._np if hasattr(buf, '_np') else buf
+
+    n = len(arr.shape)
+    a1 = ax1 % n
+    a2 = ax2 % n
+
+    order = list(range(n))
+    order[a1], order[a2] = order[a2], order[a1]
+
+    return x.permute(order)
 
 # Step 47 - tensor_matmul_2d (not yet solved)
 # TODO: implement
