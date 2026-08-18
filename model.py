@@ -910,6 +910,11 @@ def train_mlp(X, y, epochs=50, learning_rate=0.1, hidden=16, seed=0):
 
     return model, losses
 
-# Step 58 - evaluate_mlp (not yet solved)
-# TODO: implement
+# Step 58 - evaluate_mlp
+def evaluate_mlp(model, X_test, y_test):
+    # TODO: Run the model on X_test and return its classification accuracy
+    x = tensor_from_data(X_test)
+    out = model(x)
+    logits = out.lazydata._np
+    return accuracy(logits, y_test)
 
