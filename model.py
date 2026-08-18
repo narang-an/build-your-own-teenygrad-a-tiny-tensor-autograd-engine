@@ -292,11 +292,11 @@ class Add(Function):
 # Step 23 - Sub
 class Sub(Function):
     def forward(self, x, y):
-        # TODO: return the elementwise difference x - y as a LazyBuffer
+        # return the elementwise difference x - y as a LazyBuffer
         return lazybuffer_binary_e(x, BinaryOps.SUB, y)
 
     def backward(self, grad_output):
-        # TODO: return gradients for x and y (None where grad is not needed)
+        # return gradients for x and y (None where grad is not needed)
         grad_x = grad_output if self.needs_input_grad[0] else None
         grad_y = grad_output.e(UnaryOps.NEG) if self.needs_input_grad[1] else None
         return grad_x, grad_y
@@ -351,6 +351,8 @@ def backward(self, grad_output):
     # broadcast the summed gradient back to the original input shape
     return expand(grad_output, self.input_shape)
 
+Sum.backward = backward
+
 # Step 28 - max_function_forward
 class Max(Function):
     def forward(self, x, axis):
@@ -364,8 +366,7 @@ class Max(Function):
 def backward(self, grad_output):
     # route grad_output back to the input elements that were the maximum
     x_shape = self.x._np.shape
-    expanded = expand(self.ret, x_shape)
-    ones = LazyBuffer(np.ones(x_shape))
+    ones = LazyBuffer(np.ones(x_shape, dtype=np.float32))
     max_is_1s = lazybuffer_binary_e(ones, BinaryOps.SUB, lazybuffer_binary_e(self.x, BinaryOps.CMPLT, self.ret))
     counts = r(max_is_1s, ReduceOps.SUM, self.axis)          
     counts_expanded = expand(counts, x_shape)                
@@ -563,15 +564,38 @@ def bind_unary_tensor_methods():
 # Step 41 - broadcasted
 def broadcasted(x, y):
     # align two tensors to one common shape so an elementwise op can run
-    ax = x.data._np
-    ay = y.data._np
+    # Uses the graph-connected reshape/expand Tensor methods, so gradients still
+    # flow back through the broadcast (Expand.backward sums the stretched axes).
+    if not isinstance(x, Tensor):
+        x = tensor_from_data(x)
+    if not isinstance(y, Tensor):
+        y = tensor_from_data(y)
 
-    bx, by = np.broadcast_arrays(ax, ay)
+    sx, sy = tuple(x.shape), tuple(y.shape)
+    if sx == sy:
+        return x, y
 
-    out_x = x if ax.shape == bx.shape else tensor_from_data(np.array(bx, dtype=np.float32))
-    out_y = y if ay.shape == by.shape else tensor_from_data(np.array(by, dtype=np.float32))
+    # left-pad the shorter shape with 1s so both have the same rank
+    ndim = max(len(sx), len(sy))
+    px = (1,) * (ndim - len(sx)) + sx
+    py = (1,) * (ndim - len(sy)) + sy
 
-    return out_x, out_y
+    out_shape = tuple(max(a, b) for a, b in zip(px, py))
+    for a, b in zip(px, py):
+        if a != b and a != 1 and b != 1:
+            raise ValueError(f"cannot broadcast shapes {sx} and {sy}")
+
+    if px != sx:
+        x = x.reshape(px)
+    if px != out_shape:
+        x = x.expand(out_shape)
+
+    if py != sy:
+        y = y.reshape(py)
+    if py != out_shape:
+        y = y.expand(out_shape)
+
+    return x, y
 
 # Step 42 - bind_binary_tensor_methods
 def bind_binary_tensor_methods():
@@ -650,28 +674,21 @@ def bind_reduce_tensor_methods():
             return (axis % ndim,)
         return tuple(a % ndim for a in axis)
 
-    def _np(self):
-        # pull the underlying ndarray out of a Tensor
-        for attr in ('_np', 'lazydata', 'data', 'buffer'):
-            if hasattr(self, attr):
-                val = getattr(self, attr)
-                if isinstance(val, np.ndarray):
-                    return val
-                if hasattr(val, '_np'):
-                    return val._np
-        return np.array(self)
+    def _squeeze(out, in_shape, axes):
+        # drop the size-1 dims the reduce left behind, via the graph-connected reshape
+        return out.reshape(tuple(d for i, d in enumerate(in_shape) if i not in axes))
 
     def sum(self, axis=None, keepdim=False):
-        arr = _np(self)
-        axes = _axes(arr.ndim, axis)
-        result = arr.sum(axis=axes, keepdims=keepdim)
-        return tensor_from_data(result.tolist())
+        in_shape = tuple(self.shape)
+        axes = _axes(len(in_shape), axis)
+        out = Sum.apply(self, axis=axes)
+        return out if keepdim else _squeeze(out, in_shape, axes)
 
     def max(self, axis=None, keepdim=False):
-        arr = _np(self)
-        axes = _axes(arr.ndim, axis)
-        result = arr.max(axis=axes, keepdims=keepdim)
-        return tensor_from_data(result.tolist())
+        in_shape = tuple(self.shape)
+        axes = _axes(len(in_shape), axis)
+        out = Max.apply(self, axis=axes)
+        return out if keepdim else _squeeze(out, in_shape, axes)
 
     Tensor.sum = sum
     Tensor.max = max
@@ -679,22 +696,22 @@ def bind_reduce_tensor_methods():
 # Step 45 - tensor_mean
 def tensor_mean(x, axis=None, keepdim=False):
     # sum x over axis then divide by the number of reduced elements
-    arr = _to_np(x)
-    out = arr.mean(axis=axis, keepdims=keepdim)
-    return tensor_from_data(out)
+    in_shape = tuple(x.shape)
+    ndim = len(in_shape)
+    if axis is None:
+        axes = tuple(range(ndim))
+    elif isinstance(axis, int):
+        axes = (axis % ndim,)
+    else:
+        axes = tuple(a % ndim for a in axis)
+
+    n = prod([in_shape[a] for a in axes])
+    return x.sum(axis=axes, keepdim=keepdim).div(tensor_from_data(float(n)))
 
 # Step 46 - tensor_transpose
 def tensor_transpose(x, ax1=-2, ax2=-1):
     # swap axes ax1 and ax2 of tensor x using a permutation
-    buf = None
-    for attr in ('lazydata', 'data', '_lazydata', 'buffer', '_data'):
-        if hasattr(x, attr):
-            buf = getattr(x, attr)
-            break
-
-    arr = buf._np if hasattr(buf, '_np') else buf
-
-    n = len(arr.shape)
+    n = len(x.shape)
     a1 = ax1 % n
     a2 = ax2 % n
 
@@ -706,72 +723,67 @@ def tensor_transpose(x, ax1=-2, ax2=-1):
 # Step 47 - tensor_matmul_2d
 def tensor_matmul_2d(a, b):
     # Compute a 2D matrix product using reshape, expand, mul, and sum.
-    def _np(t):
-        return t._np if hasattr(t, '_np') else t.lazydata._np
+    if not isinstance(a, Tensor):
+        a = tensor_from_data(a)
+    if not isinstance(b, Tensor):
+        b = tensor_from_data(b)
 
-    an = _np(a)
-    bn = _np(b)
+    m, k = a.shape
+    k2, n = b.shape
+    if k != k2:
+        raise ValueError(f"cannot matmul shapes {a.shape} and {b.shape}")
 
-    m, k = an.shape
-    k2, n = bn.shape
+    # (m,k) -> (m,k,1) -> (m,k,n)   and   (k,n) -> (1,k,n) -> (m,k,n)
+    a3 = a.reshape((m, k, 1)).expand((m, k, n))
+    b3 = b.reshape((1, k, n)).expand((m, k, n))
 
-    a3 = an.reshape((m, k, 1))
-    b3 = bn.reshape((1, k, n))
-
-    prod = a3 * b3
-    result = prod.sum(axis=1)
-
-    cls = type(a)
-    out = cls.__new__(cls)
-    out.lazydata = LazyBuffer(result.astype(np.float32))
-    out.requires_grad = False
-    out.grad = None
-    out._ctx = None
-    return out
+    # elementwise product, then contract the shared k axis away
+    return a3.mul(b3).sum(axis=1)
 
 # Step 48 - tensor_softmax
 def tensor_softmax(x, axis=-1):
     # turn logits into a probability distribution along the given axis
-    arr = np.array(x.numpy(), dtype=np.float64)
+    if not isinstance(x, Tensor):
+        x = tensor_from_data(x)
 
-    m = arr.max(axis=axis, keepdims=True)
-    e = np.exp(arr - m)
-    out = e / e.sum(axis=axis, keepdims=True)
-
-    return Tensor(LazyBuffer(out))
+    # subtract the max first so exp() cannot overflow; it cancels out of the result
+    m = x.max(axis=axis, keepdim=True)
+    e = x.sub(m).exp()
+    return e.div(e.sum(axis=axis, keepdim=True))
 
 # Step 49 - tensor_log_softmax
 def tensor_log_softmax(x, axis=-1):
     # compute the log of the softmax of x along axis, numerically stable
-    if hasattr(x, 'numpy'):
-        arr = np.array(x.numpy(), dtype=np.float64)
-    else:
-        arr = np.array(x, dtype=np.float64)
+    if not isinstance(x, Tensor):
+        x = tensor_from_data(x)
 
-    m = arr.max(axis=axis, keepdims=True)
-    shifted = arr - m
-    lse = np.log(np.exp(shifted).sum(axis=axis, keepdims=True))
-    out = shifted - lse
-
-    return Tensor(LazyBuffer(out))
+    # log_softmax(x) = (x - max) - log(sum(exp(x - max)))
+    # staying in log space avoids taking log() of an underflowed probability
+    shifted = x.sub(x.max(axis=axis, keepdim=True))
+    lse = shifted.exp().sum(axis=axis, keepdim=True).log()
+    return shifted.sub(lse)
 
 # Step 50 - sparse_categorical_cross_entropy
 def sparse_categorical_cross_entropy(logits, labels):
     # mean negative log-probability of the correct class for each sample
+    if not isinstance(logits, Tensor):
+        logits = tensor_from_data(logits)
+
     log_probs = tensor_log_softmax(logits, axis=-1)
-    lp = log_probs.numpy().astype(np.float64)
+    n, n_classes = log_probs.shape
 
+    # a constant one-hot mask picks out the correct class per row; multiplying by
+    # it (instead of fancy-indexing) keeps the whole thing inside the autograd graph
     labels = np.asarray(labels).astype(int).reshape(-1)
-    n = lp.shape[0]
+    onehot = np.zeros((n, n_classes), dtype=np.float32)
+    onehot[np.arange(n), labels] = 1.0
 
-    picked = lp[np.arange(n), labels]
-    loss = -picked.mean()
-
-    return tensor_from_data(float(loss))
+    picked = log_probs.mul(tensor_from_data(onehot))
+    return picked.sum().neg().div(tensor_from_data(float(n)))
 
 # Step 51 - Linear
 class Linear:
-    # TODO: build randn weight [in,out] and bias [out], call computes x @ W + b
+    # randn weight [in,out] and bias [out]; call computes x @ W + b
     def __init__(self, in_features, out_features, seed=None):
         rng = np.random.RandomState(seed)
 
@@ -782,12 +794,11 @@ class Linear:
         self.bias = Tensor(b, requires_grad=True)
 
     def __call__(self, x):
-        mm = tensor_matmul_2d(x, self.weight)        
-        mm_np = np.asarray(mm.numpy(), dtype=np.float32)
-        b_np = self.bias.data._np.astype(np.float32)
-
-        out = mm_np + b_np                           
-        return Tensor(out, requires_grad=True)
+        if not isinstance(x, Tensor):
+            x = tensor_from_data(x)
+        # x @ W + b; add() broadcasts the (out,) bias across the batch, and
+        # Expand.backward sums those copies back down when gradients flow
+        return tensor_matmul_2d(x, self.weight).add(self.bias)
 
     def parameters(self):
         return [self.weight, self.bias]
@@ -843,7 +854,7 @@ def zero_grad(parameters):
 
 # Step 55 - make_toy_digit_dataset
 def make_toy_digit_dataset(num_samples, seed=0):
-    # TODO: build N noisy samples around three flattened 3x3 digit prototypes
+    # build N noisy samples around three flattened 3x3 digit prototypes
     prototypes = np.array([
         [0, 1, 0, 1, 0, 1, 0, 1, 0],
         [1, 1, 1, 0, 1, 0, 1, 1, 1],
@@ -875,46 +886,24 @@ def train_mlp(X, y, epochs=50, learning_rate=0.1, hidden=16, seed=0):
 
     model = MLP(in_features=n_features, hidden=hidden, out_features=n_classes, seed=seed)
     params = model.parameters()
-    W1, b1, W2, b2 = params
+    inputs = tensor_from_data(X, requires_grad=False)
 
     losses = []
     for _ in range(epochs):
-        # forward
-        z1 = X @ _to_np(W1.data) + _to_np(b1.data)
-        h = np.maximum(z1, 0.0)
-        logits = h @ _to_np(W2.data) + _to_np(b2.data)
+        zero_grad(params)                                   # backward accumulates, so clear first
 
-        loss = sparse_categorical_cross_entropy(tensor_from_data(logits), y)
+        logits = model(inputs)                              # forward, building the graph
+        loss = sparse_categorical_cross_entropy(logits, y)
         losses.append(float(loss.numpy()))
 
-        # softmax-cross-entropy gradient: (probs - onehot) / N
-        shifted = logits - logits.max(axis=1, keepdims=True)
-        exp = np.exp(shifted)
-        probs = exp / exp.sum(axis=1, keepdims=True)
-        dlogits = probs.copy()
-        dlogits[np.arange(n_samples), y] -= 1.0
-        dlogits /= n_samples
-
-        # backprop through the second affine, the relu, and the first affine
-        dW2 = h.T @ dlogits
-        db2 = dlogits.sum(axis=0)
-        dh = dlogits @ _to_np(W2.data).T
-        dz1 = dh * (z1 > 0.0)
-        dW1 = X.T @ dz1
-        db1 = dz1.sum(axis=0)
-
-        zero_grad(params)
-        for p, g in zip(params, (dW1, db1, dW2, db2)):
-            p.grad = tensor_from_data(g)
-        sgd_step(params, learning_rate)
+        tensor_backward(loss)                               # reverse-mode autodiff fills p.grad
+        sgd_step(params, learning_rate)                     # p <- p - lr * p.grad
 
     return model, losses
 
 # Step 58 - evaluate_mlp
 def evaluate_mlp(model, X_test, y_test):
-    # TODO: Run the model on X_test and return its classification accuracy
-    x = tensor_from_data(X_test)
-    out = model(x)
-    logits = out.lazydata._np
-    return accuracy(logits, y_test)
+    # Run the model on X_test and return its classification accuracy
+    logits = model(tensor_from_data(X_test, requires_grad=False))
+    return accuracy(logits.numpy(), y_test)
 
