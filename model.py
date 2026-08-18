@@ -767,8 +767,17 @@ def tensor_softmax(x, axis=-1):
 
     return tensor_from_data(out.tolist())
 
-# Step 49 - tensor_log_softmax (not yet solved)
-# TODO: implement
+# Step 49 - tensor_log_softmax
+def tensor_log_softmax(x, axis=-1):
+    # compute the log of the softmax of x along axis, numerically stable
+    arr = np.array(x.numpy(), dtype=np.float64)
+
+    m = arr.max(axis=axis, keepdims=True)
+    shifted = arr - m
+    lse = np.log(np.exp(shifted).sum(axis=axis, keepdims=True))
+    out = shifted - lse
+
+    return Tensor(LazyBuffer(out))
 
 # Step 50 - sparse_categorical_cross_entropy (not yet solved)
 # TODO: implement
