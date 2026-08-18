@@ -834,8 +834,12 @@ def sgd_step(parameters, learning_rate):
         p.data = LazyBuffer(updated.astype(np.float32))
     return None
 
-# Step 54 - zero_grad (not yet solved)
-# TODO: implement
+# Step 54 - zero_grad
+def zero_grad(parameters):
+    # reset each parameter's .grad to None before the next backward pass
+    for p in parameters:
+        p.grad = None
+    return None
 
 # Step 55 - make_toy_digit_dataset (not yet solved)
 # TODO: implement
