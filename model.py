@@ -765,7 +765,7 @@ def tensor_softmax(x, axis=-1):
     e = np.exp(arr - m)
     out = e / e.sum(axis=axis, keepdims=True)
 
-    return tensor_from_data(out.tolist())
+    return Tensor(LazyBuffer(out))
 
 # Step 49 - tensor_log_softmax
 def tensor_log_softmax(x, axis=-1):
