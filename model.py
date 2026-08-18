@@ -865,8 +865,50 @@ def accuracy(logits, labels):
     preds = arr.argmax(axis=-1)
     return float((preds == np.asarray(labels).reshape(-1)).mean())
 
-# Step 57 - train_mlp (not yet solved)
-# TODO: implement
+# Step 57 - train_mlp
+def train_mlp(X, y, epochs=50, learning_rate=0.1, hidden=16, seed=0):
+    # build an MLP for X, y and run gradient descent, returning (model, loss_history)
+    X = np.asarray(X, dtype=np.float32)
+    y = np.asarray(y).astype(int).reshape(-1)
+    n_samples, n_features = X.shape
+    n_classes = int(y.max()) + 1
+
+    model = MLP(in_features=n_features, hidden=hidden, out_features=n_classes, seed=seed)
+    params = model.parameters()
+    W1, b1, W2, b2 = params
+
+    losses = []
+    for _ in range(epochs):
+        # forward
+        z1 = X @ _to_np(W1.data) + _to_np(b1.data)
+        h = np.maximum(z1, 0.0)
+        logits = h @ _to_np(W2.data) + _to_np(b2.data)
+
+        loss = sparse_categorical_cross_entropy(tensor_from_data(logits), y)
+        losses.append(float(loss.numpy()))
+
+        # softmax-cross-entropy gradient: (probs - onehot) / N
+        shifted = logits - logits.max(axis=1, keepdims=True)
+        exp = np.exp(shifted)
+        probs = exp / exp.sum(axis=1, keepdims=True)
+        dlogits = probs.copy()
+        dlogits[np.arange(n_samples), y] -= 1.0
+        dlogits /= n_samples
+
+        # backprop through the second affine, the relu, and the first affine
+        dW2 = h.T @ dlogits
+        db2 = dlogits.sum(axis=0)
+        dh = dlogits @ _to_np(W2.data).T
+        dz1 = dh * (z1 > 0.0)
+        dW1 = X.T @ dz1
+        db1 = dz1.sum(axis=0)
+
+        zero_grad(params)
+        for p, g in zip(params, (dW1, db1, dW2, db2)):
+            p.grad = tensor_from_data(g)
+        sgd_step(params, learning_rate)
+
+    return model, losses
 
 # Step 58 - evaluate_mlp (not yet solved)
 # TODO: implement
