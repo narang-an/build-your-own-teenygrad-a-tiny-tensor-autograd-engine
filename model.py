@@ -555,6 +555,9 @@ def bind_unary_tensor_methods():
         'sigmoid': _make(Sigmoid),
     }
 
+    for name, fn in methods.items():
+        setattr(Tensor, name, fn)
+
     return methods
 
 # Step 41 - broadcasted
