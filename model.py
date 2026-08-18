@@ -785,11 +785,6 @@ def tensor_log_softmax(x, axis=-1):
 # Step 50 - sparse_categorical_cross_entropy
 def sparse_categorical_cross_entropy(logits, labels):
     # mean negative log-probability of the correct class for each sample
-    if hasattr(x, 'numpy'):
-        arr = np.array(x.numpy(), dtype=np.float64)
-    else:
-        arr = np.array(x, dtype=np.float64)
-
     log_probs = tensor_log_softmax(logits, axis=-1)
     lp = log_probs.numpy().astype(np.float64)
 
