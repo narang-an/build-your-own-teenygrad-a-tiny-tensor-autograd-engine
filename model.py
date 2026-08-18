@@ -663,6 +663,9 @@ def bind_movement_tensor_methods():
         out = ctx.forward(buf, order=order)
         return _wrap(out)
 
+    for name, fn in methods.items():
+        setattr(Tensor, name, fn)
+
     return {'reshape': reshape, 'expand': expand, 'permute': permute}
 
 # Step 44 - bind_reduce_tensor_methods
@@ -819,8 +822,29 @@ class Linear:
     def parameters(self):
         return [self.weight, self.bias]
 
-# Step 52 - MLP (not yet solved)
-# TODO: implement
+# Step 52 - MLP
+bind_unary_tensor_methods()
+bind_binary_tensor_methods()
+bind_movement_tensor_methods()  
+bind_reduce_tensor_methods()  
+
+class MLP:
+    """Two-layer MLP: Linear -> relu -> Linear."""
+    def __init__(self, in_features, hidden, out_features, seed=None):
+        seed2 = seed + 1 if seed is not None else None
+        self.l1 = Linear(in_features, hidden, seed=seed)
+        self.l2 = Linear(hidden, out_features, seed=seed2)
+
+    def __call__(self, x):
+        if not isinstance(x, Tensor):
+            x = tensor_from_data(x)
+
+        h = self.l1(x).relu()
+        return self.l2(h)
+
+    def parameters(self):
+        # return combined parameter list of both layers
+        return self.l1.parameters() + self.l2.parameters()
 
 # Step 53 - sgd_step (not yet solved)
 # TODO: implement
