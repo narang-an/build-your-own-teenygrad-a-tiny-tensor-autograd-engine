@@ -770,7 +770,10 @@ def tensor_softmax(x, axis=-1):
 # Step 49 - tensor_log_softmax
 def tensor_log_softmax(x, axis=-1):
     # compute the log of the softmax of x along axis, numerically stable
-    arr = np.array(x.numpy(), dtype=np.float64)
+    if hasattr(x, 'numpy'):
+        arr = np.array(x.numpy(), dtype=np.float64)
+    else:
+        arr = np.array(x, dtype=np.float64)
 
     m = arr.max(axis=axis, keepdims=True)
     shifted = arr - m
@@ -779,8 +782,24 @@ def tensor_log_softmax(x, axis=-1):
 
     return Tensor(LazyBuffer(out))
 
-# Step 50 - sparse_categorical_cross_entropy (not yet solved)
-# TODO: implement
+# Step 50 - sparse_categorical_cross_entropy
+def sparse_categorical_cross_entropy(logits, labels):
+    # mean negative log-probability of the correct class for each sample
+    if hasattr(x, 'numpy'):
+        arr = np.array(x.numpy(), dtype=np.float64)
+    else:
+        arr = np.array(x, dtype=np.float64)
+
+    log_probs = tensor_log_softmax(logits, axis=-1)
+    lp = log_probs.numpy().astype(np.float64)
+
+    labels = np.asarray(labels).astype(int).reshape(-1)
+    n = lp.shape[0]
+
+    picked = lp[np.arange(n), labels]  # one log-prob per row, shape (N,)
+    loss = -picked.mean()
+
+    return tensor_from_data(float(loss))
 
 # Step 51 - Linear (not yet solved)
 # TODO: implement
