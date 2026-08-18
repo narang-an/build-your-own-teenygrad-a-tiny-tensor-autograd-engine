@@ -665,8 +665,43 @@ def bind_movement_tensor_methods():
 
     return {'reshape': reshape, 'expand': expand, 'permute': permute}
 
-# Step 44 - bind_reduce_tensor_methods (not yet solved)
-# TODO: implement
+# Step 44 - bind_reduce_tensor_methods
+def bind_reduce_tensor_methods():
+    # attach sum and max reduction methods to the Tensor class
+
+    def _axes(ndim, axis):
+        # normalize axis into a tuple of non-negative axis indices
+        if axis is None:
+            return tuple(range(ndim))
+        if isinstance(axis, int):
+            return (axis % ndim,)
+        return tuple(a % ndim for a in axis)
+
+    def _np(self):
+        # pull the underlying ndarray out of a Tensor
+        for attr in ('_np', 'lazydata', 'data', 'buffer'):
+            if hasattr(self, attr):
+                val = getattr(self, attr)
+                if isinstance(val, np.ndarray):
+                    return val
+                if hasattr(val, '_np'):
+                    return val._np
+        return np.array(self)
+
+    def sum(self, axis=None, keepdim=False):
+        arr = _np(self)
+        axes = _axes(arr.ndim, axis)
+        result = arr.sum(axis=axes, keepdims=keepdim)
+        return tensor_from_data(result.tolist())
+
+    def max(self, axis=None, keepdim=False):
+        arr = _np(self)
+        axes = _axes(arr.ndim, axis)
+        result = arr.max(axis=axes, keepdims=keepdim)
+        return tensor_from_data(result.tolist())
+
+    Tensor.sum = sum
+    Tensor.max = max
 
 # Step 45 - tensor_mean (not yet solved)
 # TODO: implement
