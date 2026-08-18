@@ -557,8 +557,18 @@ def bind_unary_tensor_methods():
 
     return methods
 
-# Step 41 - broadcasted (not yet solved)
-# TODO: implement
+# Step 41 - broadcasted
+def broadcasted(x, y):
+    # align two tensors to one common shape so an elementwise op can run
+    ax = x.data._np
+    ay = y.data._np
+
+    bx, by = np.broadcast_arrays(ax, ay)
+
+    out_x = x if ax.shape == bx.shape else tensor_from_data(np.array(bx, dtype=np.float32))
+    out_y = y if ay.shape == by.shape else tensor_from_data(np.array(by, dtype=np.float32))
+
+    return out_x, out_y
 
 # Step 42 - bind_binary_tensor_methods (not yet solved)
 # TODO: implement
