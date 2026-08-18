@@ -712,7 +712,7 @@ def tensor_mean(x, axis=None, keepdim=False):
 
 # Step 46 - tensor_transpose
 def tensor_transpose(x, ax1=-2, ax2=-1):
-    # TODO: swap axes ax1 and ax2 of tensor x using a permutation
+    # swap axes ax1 and ax2 of tensor x using a permutation
     buf = None
     for attr in ('lazydata', 'data', '_lazydata', 'buffer', '_data'):
         if hasattr(x, attr):
