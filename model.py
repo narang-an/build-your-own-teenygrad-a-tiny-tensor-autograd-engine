@@ -604,33 +604,11 @@ def bind_binary_tensor_methods():
 # Step 43 - bind_movement_tensor_methods
 def bind_movement_tensor_methods():
     # return reshape/expand/permute methods that call function_apply on movement Functions
-    def _get_lazybuffer(t):
-        # extract the underlying LazyBuffer from a Tensor (or wrap a raw array)
-        if isinstance(t, LazyBuffer):
-            return t
-        for attr in ('lazydata', 'data', '_lazydata'):
-            if hasattr(t, attr):
-                val = getattr(t, attr)
-                if isinstance(val, LazyBuffer):
-                    return val
-        return LazyBuffer(np.asarray(t, dtype=np.float32))
-
-    def _wrap(out):
-        # build a fresh Tensor without rerunning __init__
-        t = Tensor.__new__(Tensor)
-        t.lazydata = out
-        t.requires_grad = False
-        t.grad = None
-        t._ctx = None
-        return t
-
     def _normalize(args):
-        # allow t.reshape(2, 3) as well as t.reshape((2, 3))
         if len(args) == 1 and isinstance(args[0], (tuple, list)):
             return tuple(args[0])
         return tuple(args)
-
-    # --- build Expand and Permute as Function subclasses at runtime ---
+        
     Expand = type('Expand', (Function,), {
         'forward': expand_function_forward,
         'backward': expand_function_backward,
@@ -643,30 +621,19 @@ def bind_movement_tensor_methods():
     })
 
     def reshape(self, *args):
-        shape = _normalize(args)
-        buf = _get_lazybuffer(self)
-        ctx = object.__new__(Reshape)
-        out = ctx.forward(buf, shape)
-        return _wrap(out)
+        return Reshape.apply(self, shape=_normalize(args))
 
     def expand(self, *args):
-        shape = _normalize(args)
-        buf = _get_lazybuffer(self)
-        ctx = object.__new__(Expand)
-        out = ctx.forward(buf, shape=shape)
-        return _wrap(out)
+        return Expand.apply(self, shape=_normalize(args))
 
     def permute(self, *args):
-        order = _normalize(args)
-        buf = _get_lazybuffer(self)
-        ctx = object.__new__(Permute)
-        out = ctx.forward(buf, order=order)
-        return _wrap(out)
+        return Permute.apply(self, order=_normalize(args))
 
+    methods = {'reshape': reshape, 'expand': expand, 'permute': permute}
     for name, fn in methods.items():
         setattr(Tensor, name, fn)
 
-    return {'reshape': reshape, 'expand': expand, 'permute': permute}
+    return methods
 
 # Step 44 - bind_reduce_tensor_methods
 def bind_reduce_tensor_methods():
