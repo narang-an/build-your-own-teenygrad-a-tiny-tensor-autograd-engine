@@ -730,8 +730,31 @@ def tensor_transpose(x, ax1=-2, ax2=-1):
 
     return x.permute(order)
 
-# Step 47 - tensor_matmul_2d (not yet solved)
-# TODO: implement
+# Step 47 - tensor_matmul_2d
+def tensor_matmul_2d(a, b):
+    # Compute a 2D matrix product using reshape, expand, mul, and sum.
+    def _np(t):
+        return t._np if hasattr(t, '_np') else t.lazydata._np
+
+    an = _np(a)
+    bn = _np(b)
+
+    m, k = an.shape
+    k2, n = bn.shape
+
+    a3 = an.reshape((m, k, 1))
+    b3 = bn.reshape((1, k, n))
+
+    prod = a3 * b3
+    result = prod.sum(axis=1)
+
+    cls = type(a)
+    out = cls.__new__(cls)
+    out.lazydata = LazyBuffer(result.astype(np.float32))
+    out.requires_grad = False
+    out.grad = None
+    out._ctx = None
+    return out
 
 # Step 48 - tensor_softmax (not yet solved)
 # TODO: implement
