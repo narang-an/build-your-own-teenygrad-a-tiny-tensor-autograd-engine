@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "teenygrad"
+version = "1.0.0"
+description = "A tiny numpy-backed tensor library with reverse-mode automatic differentiation, built from scratch to learn how autograd works."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+include = ["teenygrad*"]
+
+[tool.pytest.ini_options]
+# Lets `pytest` work from a clean checkout without installing the package
+# first, and lets tests import their own helpers via `tests.support.*`.
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
