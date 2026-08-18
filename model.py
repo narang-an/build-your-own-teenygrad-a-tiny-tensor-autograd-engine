@@ -791,7 +791,7 @@ def sparse_categorical_cross_entropy(logits, labels):
     labels = np.asarray(labels).astype(int).reshape(-1)
     n = lp.shape[0]
 
-    picked = lp[np.arange(n), labels]  # one log-prob per row, shape (N,)
+    picked = lp[np.arange(n), labels]
     loss = -picked.mean()
 
     return tensor_from_data(float(loss))
